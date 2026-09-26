@@ -1,0 +1,39 @@
+# Environment variables (Cực kỳ quan trọng: Giấu thông tin nhạy cảm)
+.env
+.env.*
+!.env.example
+
+# Python cache & compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+env/
+venv/
+.venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Distribution & Package
+build/
+dist/
+*.egg-info/
+
+# Unit test & coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# User uploads (không đẩy ảnh người dùng lên git)
+public/uploads/*
+!public/uploads/.gitkeep
+
+# IDE & OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
