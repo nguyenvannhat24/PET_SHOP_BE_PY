@@ -66,6 +66,11 @@ def serialize_doc(doc):
                 else item
                 for item in v
             ]
+        elif isinstance(v, str):
+            if ("avatar" in k or "image" in k or "logo" in k or "url" in k) and "localhost:5000" in v:
+                res[k] = v.replace("http://localhost:5000", "").replace("https://localhost:5000", "")
+            else:
+                res[k] = v
         else:
             res[k] = v
     return res

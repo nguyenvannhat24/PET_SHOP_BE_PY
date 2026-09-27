@@ -13,17 +13,25 @@ router = APIRouter(prefix="/api/vaccinations", tags=["Vaccinations"])
 class VaccinationRequest(BaseModel):
     pet_id: str
     vaccine_name: str
-    administered_date: str
+    vaccination_date: Optional[str] = None
+    administered_date: Optional[str] = None
     next_due_date: Optional[str] = None
     veterinarian_id: Optional[str] = None
     clinic_id: Optional[str] = None
     batch_number: Optional[str] = ""
     notes: Optional[str] = ""
+    reminder_enabled: Optional[bool] = True
 
 async def populate_vaccination(vac_doc):
     if not vac_doc:
         return vac_doc
     v_ser = serialize_doc(vac_doc)
+    
+    # Đồng bộ song song cả 2 trường ngày tiêm
+    date_val = v_ser.get("vaccination_date") or v_ser.get("administered_date") or ""
+    v_ser["vaccination_date"] = date_val
+    v_ser["administered_date"] = date_val
+
     if vac_doc.get("pet_id"):
         pet = await pets_col.find_one({"_id": to_oid(vac_doc["pet_id"])})
         if pet:
@@ -47,7 +55,7 @@ async def get_vaccinations(
     if pet_id:
         query["pet_id"] = to_oid(pet_id)
 
-    cursor = vaccinations_col.find(query).sort("administered_date", -1)
+    cursor = vaccinations_col.find(query).sort("created_at", -1)
     vacs = await cursor.to_list(length=1000)
 
     populated = []
@@ -63,6 +71,9 @@ async def get_vaccinations(
 @router.post("")
 async def create_vaccination(req: VaccinationRequest, current_user: dict = Depends(get_current_user)):
     data = req.dict()
+    date_val = req.vaccination_date or req.administered_date or datetime.utcnow().strftime("%Y-%m-%d")
+    data["vaccination_date"] = date_val
+    data["administered_date"] = date_val
     data["pet_id"] = to_oid(data["pet_id"])
     if data.get("veterinarian_id"):
         data["veterinarian_id"] = to_oid(data["veterinarian_id"])
@@ -78,6 +89,20 @@ async def create_vaccination(req: VaccinationRequest, current_user: dict = Depen
         "success": True,
         "message": "Thêm sổ tiêm chủng thành công!",
         "data": await populate_vaccination(data)
+    }
+
+@router.get("/pet/{pet_id}")
+async def get_pet_vaccinations(pet_id: str, current_user: dict = Depends(get_current_user)):
+    cursor = vaccinations_col.find({"pet_id": to_oid(pet_id)}).sort("administered_date", -1)
+    vacs = await cursor.to_list(length=1000)
+    populated = []
+    for v in vacs:
+        populated.append(await populate_vaccination(v))
+
+    return {
+        "success": True,
+        "count": len(populated),
+        "data": populated
     }
 
 @router.get("/{vac_id}")

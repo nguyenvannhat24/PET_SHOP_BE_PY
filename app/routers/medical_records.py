@@ -84,6 +84,20 @@ async def create_medical_record(req: MedicalRecordRequest, current_user: dict = 
         "data": await populate_record(data)
     }
 
+@router.get("/pet/{pet_id}")
+async def get_pet_medical_records(pet_id: str, current_user: dict = Depends(get_current_user)):
+    cursor = medical_records_col.find({"pet_id": to_oid(pet_id)}).sort("created_at", -1)
+    records = await cursor.to_list(length=1000)
+    populated = []
+    for r in records:
+        populated.append(await populate_record(r))
+
+    return {
+        "success": True,
+        "count": len(populated),
+        "data": populated
+    }
+
 @router.get("/{record_id}")
 async def get_medical_record(record_id: str):
     rec = await medical_records_col.find_one({"_id": to_oid(record_id)})

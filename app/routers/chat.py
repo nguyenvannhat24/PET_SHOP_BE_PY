@@ -34,7 +34,10 @@ async def get_partner_details(partner_user_id):
     if role == "CLINIC":
         clinic = await clinics_col.find_one({"owner_id": to_oid(partner_user_id)})
         if clinic:
-            partner_ser["clinic"] = serialize_doc(clinic)
+            clinic_ser = serialize_doc(clinic)
+            partner_ser["clinic"] = clinic_ser
+            if clinic.get("logo_url"):
+                partner_ser["avatar_url"] = clinic["logo_url"]
     elif role == "VETERINARIAN":
         vet = await vets_col.find_one({"user_id": to_oid(partner_user_id)})
         if vet:

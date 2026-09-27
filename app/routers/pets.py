@@ -13,8 +13,14 @@ class PetCreateRequest(BaseModel):
     breed: Optional[str] = ""
     age: Optional[int] = 0
     gender: Optional[str] = "UNKNOWN"
-    weight: Optional[float] = 0.0
-    image_url: Optional[str] = ""
+    date_of_birth: Optional[str] = None
+    weight: Optional[float] = None
+    color: Optional[str] = ""
+    avatar_url: Optional[str] = None
+    image_url: Optional[str] = None
+    is_neutered: Optional[bool] = False
+    allergies: Optional[str] = ""
+    chronic_conditions: Optional[str] = ""
     health_status: Optional[str] = ""
     notes: Optional[str] = ""
 
@@ -24,14 +30,29 @@ class PetUpdateRequest(BaseModel):
     breed: Optional[str] = None
     age: Optional[int] = None
     gender: Optional[str] = None
+    date_of_birth: Optional[str] = None
     weight: Optional[float] = None
+    color: Optional[str] = None
+    avatar_url: Optional[str] = None
     image_url: Optional[str] = None
+    is_neutered: Optional[bool] = None
+    allergies: Optional[str] = None
+    chronic_conditions: Optional[str] = None
     health_status: Optional[str] = None
     notes: Optional[str] = None
+
+def normalize_pet_avatar(pet_dict):
+    if not pet_dict:
+        return pet_dict
+    av = pet_dict.get("avatar_url") or pet_dict.get("image_url") or ""
+    pet_dict["avatar_url"] = av
+    pet_dict["image_url"] = av
+    return pet_dict
 
 async def populate_pet_owner(pet_dict):
     if not pet_dict:
         return pet_dict
+    normalize_pet_avatar(pet_dict)
     owner_id = pet_dict.get("owner_id")
     if owner_id:
         owner = await users_col.find_one({"_id": to_oid(owner_id)}, {"password_hash": 0})
@@ -71,6 +92,7 @@ async def get_pets(
 @router.post("")
 async def create_pet(req: PetCreateRequest, current_user: dict = Depends(get_current_user)):
     user_id = current_user.get("_id")
+    avatar = req.avatar_url or req.image_url or ""
     pet_doc = {
         "owner_id": to_oid(user_id),
         "name": req.name,
@@ -78,8 +100,14 @@ async def create_pet(req: PetCreateRequest, current_user: dict = Depends(get_cur
         "breed": req.breed or "",
         "age": req.age or 0,
         "gender": req.gender or "UNKNOWN",
-        "weight": req.weight or 0.0,
-        "image_url": req.image_url or "",
+        "date_of_birth": req.date_of_birth,
+        "weight": req.weight,
+        "color": req.color or "",
+        "avatar_url": avatar,
+        "image_url": avatar,
+        "is_neutered": bool(req.is_neutered),
+        "allergies": req.allergies or "",
+        "chronic_conditions": req.chronic_conditions or "",
         "health_status": req.health_status or "Khỏe mạnh",
         "notes": req.notes or "",
         "created_at": datetime.utcnow(),
@@ -123,6 +151,13 @@ async def update_pet(pet_id: str, req: PetUpdateRequest, current_user: dict = De
         raise HTTPException(status_code=403, detail="Bạn không có quyền chỉnh sửa thú cưng này")
 
     update_data = {k: v for k, v in req.dict().items() if v is not None}
+    
+    # Đồng bộ avatar_url và image_url
+    if "avatar_url" in update_data and not update_data.get("image_url"):
+        update_data["image_url"] = update_data["avatar_url"]
+    elif "image_url" in update_data and not update_data.get("avatar_url"):
+        update_data["avatar_url"] = update_data["image_url"]
+
     update_data["updated_at"] = datetime.utcnow()
 
     await pets_col.update_one({"_id": to_oid(pet_id)}, {"$set": update_data})
